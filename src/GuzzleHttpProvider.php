@@ -1,83 +1,105 @@
-<?php
-
-namespace SaintSystems\OData;
-
-use GuzzleHttp\Client;
-
-class GuzzleHttpProvider implements IHttpProvider
+<?php if (!defined('BASEPATH')) exit('No direct script access allowed');
+use SaintSystems\OData\ODataClient;
+class CrmAPI
 {
-    /**
-    * The Guzzle client used to make the HTTP request
-    *
-    * @var Client
-    */
-    protected $http;
+	private static $initialized = false;
+	private static $instance;
+	private static $odataClient;
+	private static $_service_url;
+	private static $api_version = '8.0';
+	private static $api_version_latest = '';
+	private static $_username = '';
+	private static $_password = '';
 
-    /**
-    * The timeout, in seconds
-    *
-    * @var string
-    */
-    protected $timeout;
+	public static function GetInstance()
+	{
+		if(!isset(self::$instance))
+		{
+			self::$instance = new CrmAPI();
+		}
+		return self::$instance;
+	}
 
-    /**
-     * Creates a new HttpProvider
-     */
-    public function __construct()
-    {
-        $this->http = new Client();
-        $this->timeout = 0;
-    }
+	function __construct()
+	{
+		if(!isset(self::$instance))
+		{
+			self::$instance = $this;
+		}
+		self::$instance->CI =& get_instance();
+	}
 
-    /**
-     * Gets the timeout limit of the cURL request
-     * @return integer  The timeout in ms
-     */
-    public function getTimeout()
-    {
-        return $this->timeout;
-    }
+	static function Initialize($new_service_url, $username, $password, $version = '8.0')
+	{
+		if(self::$initialized) return;
+		$initialized = true;
+		require_once(ROOTPATH.'vendor/autoload.php');
 
-    /**
-     * Sets the timeout limit of the cURL request
-     *
-     * @param integer $timeout The timeout in ms
-     *
-     * @return $this
-     */
-    public function setTimeout($timeout)
-    {
-        $this->timeout = $timeout;
-        return $this;
-    }
+		self::$_service_url = $new_service_url;
+		self::$_username    = $username;
+		self::$_password    = $password;
+		self::$api_version  = $version;
 
-    /**
-    * Executes the HTTP request using Guzzle
-    *
-    * @param HttpRequestMessage $request
-    *
-    * @return mixed object or array of objects
-    *         of class $returnType
-    */
-    public function send(HttpRequestMessage $request)
-    {
-        $options = [
-            'headers' => $request->headers,
-            'stream' =>  $request->returnsStream,
-            'timeout' => $this->timeout,
-        ];
+		self::$odataClient = new SaintSystems\OData\ODataClient($new_service_url);
+	    self::$odataClient->getHttpProvider()->setExtraOptions(array('auth' => [$username, $password, 'ntlm']));
+	}
 
-        if ($request->method == HttpMethod::POST || $request->method == HttpMethod::PUT || $request->method == HttpMethod::PATCH) {
-            $options['body'] = $request->body;
-        }
+	function GetVersion()
+	{
+		return self::$odataClient->get('api/data/v'.self::$api_version.'/RetrieveVersion');
+	}
 
-        $result = $this->http->request(
-            $request->method,
-            $request->requestUri,
-            $options
-        );
+	function GetApiVersion()
+	{
+		if(self::$api_version_latest == '')
+		{
+			$version = explode('.', self::GetVersion()[0]->Version);
+			self::$api_version_latest = $version[0].'.'.$version[1];
+		}
+		return 'api/data/v'.self::$api_version_latest.'/';
+	}
 
-        return $result;
-    }
+	function GetCustomers($filter = '')
+	{
+		return self::$odataClient->get(self::GetApiVersion().'accounts'.$filter);
+	}
 
+	function GetCustomer($customer_id)
+	{
+		return self::$odataClient->get(self::GetApiVersion().'accounts('.$customer_id.')');
+	}
+
+	function UpdateCustomer($id, $customer)
+	{
+		return self::$odataClient->patch(self::GetApiVersion().'accounts('.$id.')', $customer);
+	}
+
+	function CreateCustomer($customer)
+	{
+		return self::$odataClient->post(self::GetApiVersion().'accounts', $customer);
+	}
+
+	function GetContacts($filter = '')
+	{
+		//return self::$odataClient->from(self::GetApiVersion().'contacts'.$filter)->get();
+		$client = new \GuzzleHttp\Client();
+		$response = $client->request('GET', self::$_service_url.self::GetApiVersion().'contacts'.$filter, ['auth' => [self::$_username, self::$_password, 'ntlm']]);
+		$response_obj = json_decode($response->getBody());
+		return isset($response_obj->value) ? $response_obj->value : array();
+	}
+
+	function GetContact($contact_id)
+	{
+		return self::$odataClient->get(self::GetApiVersion().'contacts('.$contact_id.')');
+	}
+
+	function UpdateContact($id, $contact)
+	{
+		return self::$odataClient->patch(self::GetApiVersion().'contacts('.$id.')', $contact);
+	}
+
+	function CreateContact($contact)
+	{
+		return self::$odataClient->post(self::GetApiVersion().'contacts', $contact);
+	}
 }
