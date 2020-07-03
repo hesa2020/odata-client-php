@@ -1,9 +1,9 @@
 {
-    "name": "saintsystems/odata-client",
+    "name": "hesa2020/odata-client",
     "version": "0.2.6",
     "description": "Saint Systems OData Client for PHP",
     "keywords": ["odata", "rest", "php"],
-    "homepage": "https://github.com/saintsystems/odata-client-php",
+    "homepage": "https://github.com/hesa2020/odata-client-php",
     "license": "MIT",
     "type": "library",
     "authors": [
@@ -14,7 +14,7 @@
     ],
     "require": {
         "php": ">=7.1",
-        "guzzlehttp/guzzle": "^6.2",
+        "guzzlehttp/guzzle": "^7.0",
         "nesbot/carbon": "^1.22",
         "illuminate/support": "^5.4"
     },
